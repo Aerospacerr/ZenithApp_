@@ -29,6 +29,30 @@ class GeneticAlgorithm:
             population.append(chromosome)
         return population
 
+    # def fitness(self, chromosome):
+    #     total_calories = 0
+    #     total_protein = 0
+    #     total_carbs = 0
+    #     total_fats = 0
+    #     for gene, food in zip(chromosome, self.food_items):
+    #         if food["unit_category"] == "Base Units":
+    #             factor = gene / food["quantity"]  # Use actual quantity from data
+    #         else:
+    #             factor = gene  # For non-base units, gene itself is the multiplier
+
+    #         total_calories += food["calories"] * factor
+    #         total_protein += food["protein"] * factor
+    #         total_carbs += food["carbs"] * factor
+    #         total_fats += food["fats"] * factor
+    #     # Calculate squared deviations
+    #     calorie_dev = (total_calories - self.target_nutrients["calories"]) ** 2
+    #     protein_dev = (total_protein - self.target_nutrients["protein"]) ** 2
+    #     carbs_dev = (total_carbs - self.target_nutrients["carbs"]) ** 2
+    #     fats_dev = (total_fats - self.target_nutrients["fats"]) ** 2
+    #     # Sum of squared deviations
+    #     total_deviation = calorie_dev + protein_dev + carbs_dev + fats_dev
+    #     return math.sqrt(total_deviation)  # Lower is better
+
     def fitness(self, chromosome):
         total_calories = 0
         total_protein = 0
@@ -36,22 +60,51 @@ class GeneticAlgorithm:
         total_fats = 0
         for gene, food in zip(chromosome, self.food_items):
             if food["unit_category"] == "Base Units":
-                factor = gene / food["quantity"]  # Use actual quantity from data
+                factor = gene / food["quantity"]
             else:
-                factor = gene  # For non-base units, gene itself is the multiplier
+                factor = gene
 
             total_calories += food["calories"] * factor
             total_protein += food["protein"] * factor
             total_carbs += food["carbs"] * factor
             total_fats += food["fats"] * factor
+
         # Calculate squared deviations
         calorie_dev = (total_calories - self.target_nutrients["calories"]) ** 2
         protein_dev = (total_protein - self.target_nutrients["protein"]) ** 2
         carbs_dev = (total_carbs - self.target_nutrients["carbs"]) ** 2
         fats_dev = (total_fats - self.target_nutrients["fats"]) ** 2
-        # Sum of squared deviations
-        total_deviation = calorie_dev + protein_dev + carbs_dev + fats_dev
-        return math.sqrt(total_deviation)  # Lower is better
+
+        # Prioritize protein for high-protein categories
+        high_protein_categories = [
+            "BEEF",
+            "CHICKEN",
+            "EGGS",
+            "LAMB",
+            "PORK",
+            "BUFFALO",
+            "TUNA",
+            "FISH",
+            "MEAT",
+            "PROTEIN",
+            "MEAT SUBSTITUTES",
+            "POULTRY",
+            "CRUSTACEA AND MOLLUSCS",
+            "BEAN",
+            "CHEESE",
+        ]
+
+        protein_weight = 1
+        if any(food["category"] in high_protein_categories for food in self.food_items):
+            protein_weight = (
+                2  # Increase the weight for protein deviation in these categories
+            )
+
+        # Sum of squared deviations with adjusted weight for protein
+        total_deviation = (
+            calorie_dev + (protein_dev * protein_weight) + carbs_dev + fats_dev
+        )
+        return math.sqrt(total_deviation)
 
     def tournament_selection(self, population, scores):
         selected = []

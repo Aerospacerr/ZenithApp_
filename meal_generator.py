@@ -23,6 +23,7 @@ class MealGenerator:
             food_items.append(
                 {
                     "name": row["FOOD ITEM"],
+                    "category": row["CATEGORY"],  # Include the category
                     "protein": float(row["PROTEIN"]),  # Ensure conversion to float
                     "carbs": float(row["NET CARBS"]),  # Ensure conversion to float
                     "fats": float(row["FATS"]),  # Ensure conversion to float

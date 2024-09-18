@@ -30,6 +30,11 @@ class MealSelection(BaseModel):
     )
 
 
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Meal Plan Generator API"}
+
+
 @app.post("/generate_meal_plan")
 def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
     """Endpoint to generate meal plan based on user input and meal selection."""
