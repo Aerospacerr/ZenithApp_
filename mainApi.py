@@ -33,14 +33,22 @@ class MealSelection(BaseModel):
     )
 
 
-# Pydantic Models for Recommendation
+# Updated Pydantic Models for Recommendation
+class Macros(BaseModel):
+    calories: float
+    protein: float
+    carbs: float
+    fats: float
+
+
 class MealItem(BaseModel):
     name: str
-    macros: dict  # Example: {"calories": 500, "protein": 30, "carbs": 50, "fats": 20}
+    macros: Macros  # Using explicit Macros model to ensure structure
 
 
 class MealDetails(BaseModel):
-    items: list[MealItem]  # Example: [{"name": "item1", "macros": {...}}]
+    items: list[MealItem]
+    macros: Macros  # Store aggregated macros per meal (optional but recommended)
 
 
 class MealPlan(BaseModel):
@@ -107,16 +115,22 @@ def generate_recommendations(recommendation_input: RecommendationInput):
     meal_plan = recommendation_input.meal_plan
     target_macros = recommendation_input.target_macros
 
-    # Initialize RuleBasedRecommendationEngine with the user's target macros
+    # Initialize RuleBasedRecommendationEngine with the user's target macros for all meals
     rule_based_recommendation_engine = RuleBasedRecommendationEngine(
         df,
         {
-            "calories": target_macros[
-                "Breakfast"
-            ].calories,  # Simplified to one meal for example
-            "protein": target_macros["Breakfast"].protein,
-            "carbs": target_macros["Breakfast"].carbs,
-            "fats": target_macros["Breakfast"].fats,
+            "calories": sum(
+                [target.calories for target in target_macros.values()]
+            ),  # Total calories
+            "protein": sum(
+                [target.protein for target in target_macros.values()]
+            ),  # Total protein
+            "carbs": sum(
+                [target.carbs for target in target_macros.values()]
+            ),  # Total carbs
+            "fats": sum(
+                [target.fats for target in target_macros.values()]
+            ),  # Total fats
         },
     )
 
