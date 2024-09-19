@@ -16,10 +16,10 @@ class RecommendationEngine:
         }
 
         for meal, details in meal_plan.items():
-            total_shortfall_excess["calories"] += details["macros"]["calories"]
-            total_shortfall_excess["protein"] += details["macros"]["protein"]
-            total_shortfall_excess["carbs"] += details["macros"]["carbs"]
-            total_shortfall_excess["fats"] += details["macros"]["fats"]
+            total_shortfall_excess["calories"] += details.macros["calories"]
+            total_shortfall_excess["protein"] += details.macros["protein"]
+            total_shortfall_excess["carbs"] += details.macros["carbs"]
+            total_shortfall_excess["fats"] += details.macros["fats"]
 
         total_shortfall_excess["calories"] = (
             100
