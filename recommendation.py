@@ -100,12 +100,18 @@ class RecommendationEngine:
         return removal_reason
 
     def recommend_removal(self, meal_details, target_macros, threshold=20):
-        """Recommend items to remove or adjust in the meal plan."""
         recommendations = []
+
+        print("Meal details: ", meal_details)  # Debugging log
+
+        if "items" not in meal_details:
+            return []  # Return empty if 'items' key is missing
+
         for item in meal_details["items"]:
             removal_reason = self.check_item_removal(item, target_macros, threshold)
             if removal_reason:
                 recommendations.append({"item": item["name"], "reason": removal_reason})
+
         return recommendations
 
     def recommend_replacement(self, item, target_macros, threshold=20):
