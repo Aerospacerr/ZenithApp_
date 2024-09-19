@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from meal_generator import MealGenerator
 from recommendation_rulebase import (
     RecommendationEngine as RuleBasedRecommendationEngine,
-)  # Use rule-based engine
+)
 from user import User
 import pandas as pd
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Load your food data
 df = pd.read_csv("updated_food_data_with_clusters.csv")
@@ -48,7 +52,7 @@ class MealItem(BaseModel):
 
 class MealDetails(BaseModel):
     items: list[MealItem]
-    macros: Macros  # Store aggregated macros per meal (optional but recommended)
+    macros: Macros  # Store aggregated macros per meal
 
 
 class MealPlan(BaseModel):
@@ -79,6 +83,8 @@ def read_root():
 def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
     """Endpoint to generate meal plan based on user input and meal selection."""
 
+    logging.debug("Generating meal plan for user: %s", user_input.name)
+
     # Step 1: Create a User instance
     user = User(
         name=user_input.name,
@@ -94,6 +100,14 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
     user.carbs = user_input.carbs
     user.fats = user_input.fats
 
+    logging.debug(
+        "User's target nutrients: Calories=%s, Protein=%s, Carbs=%s, Fats=%s",
+        user.calories,
+        user.protein,
+        user.carbs,
+        user.fats,
+    )
+
     # Step 3: Initialize MealGenerator
     meal_generator = MealGenerator(user, meal_selection.meals, df)
 
@@ -101,7 +115,10 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
     meal_plan = meal_generator.generate_full_plan(meal_selection.user_selected_items)
 
     if not meal_plan:
+        logging.error("Meal plan generation failed for user: %s", user_input.name)
         raise HTTPException(status_code=400, detail="Meal plan generation failed.")
+
+    logging.debug("Generated meal plan: %s", meal_plan)
 
     return meal_plan
 
@@ -111,35 +128,40 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
 def generate_recommendations(recommendation_input: RecommendationInput):
     """Endpoint to generate meal recommendations based on input meal plan and target macros."""
 
+    logging.debug(
+        "Generating recommendations for meal plan: %s", recommendation_input.meal_plan
+    )
+
     # Extract the meal plan and target macros
     meal_plan = recommendation_input.meal_plan
     target_macros = recommendation_input.target_macros
+
+    logging.debug("Target macros: %s", target_macros)
 
     # Initialize RuleBasedRecommendationEngine with the user's target macros for all meals
     rule_based_recommendation_engine = RuleBasedRecommendationEngine(
         df,
         {
-            "calories": sum(
-                [target.calories for target in target_macros.values()]
-            ),  # Total calories
-            "protein": sum(
-                [target.protein for target in target_macros.values()]
-            ),  # Total protein
-            "carbs": sum(
-                [target.carbs for target in target_macros.values()]
-            ),  # Total carbs
-            "fats": sum(
-                [target.fats for target in target_macros.values()]
-            ),  # Total fats
+            "calories": sum([target.calories for target in target_macros.values()]),
+            "protein": sum([target.protein for target in target_macros.values()]),
+            "carbs": sum([target.carbs for target in target_macros.values()]),
+            "fats": sum([target.fats for target in target_macros.values()]),
         },
     )
 
     # Generate recommendations using rule-based engine
-    recommendations = rule_based_recommendation_engine.generate_recommendations(
-        meal_plan=meal_plan.meals
-    )
+    try:
+        recommendations = rule_based_recommendation_engine.generate_recommendations(
+            meal_plan=meal_plan.meals
+        )
+    except Exception as e:
+        logging.error("Error generating recommendations: %s", e)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     if not recommendations:
+        logging.error("Recommendation generation failed for meal plan: %s", meal_plan)
         raise HTTPException(status_code=400, detail="Recommendation generation failed.")
+
+    logging.debug("Generated recommendations: %s", recommendations)
 
     return recommendations
