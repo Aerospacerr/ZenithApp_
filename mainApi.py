@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from meal_generator import MealGenerator
-from recommendation_rulebase import RecommendationEngine
+from recommendation_rulebase import (
+    RecommendationEngine as RuleBasedRecommendationEngine,
+)  # Use rule-based engine
 from user import User
 import pandas as pd
 
@@ -96,21 +98,31 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
     return meal_plan
 
 
-# Recommendation API
+# Recommendation API using rule-based engine
 @app.post("/generate_recommendations")
 def generate_recommendations(recommendation_input: RecommendationInput):
     """Endpoint to generate meal recommendations based on input meal plan and target macros."""
-
-    # Initialize RecommendationEngine
-    recommendation_engine = RecommendationEngine(df)
 
     # Extract the meal plan and target macros
     meal_plan = recommendation_input.meal_plan
     target_macros = recommendation_input.target_macros
 
-    # Generate recommendations
-    recommendations = recommendation_engine.generate_recommendations(
-        meal_plan=meal_plan.meals, target_macros=target_macros
+    # Initialize RuleBasedRecommendationEngine with the user's target macros
+    rule_based_recommendation_engine = RuleBasedRecommendationEngine(
+        df,
+        {
+            "calories": target_macros[
+                "Breakfast"
+            ].calories,  # Simplified to one meal for example
+            "protein": target_macros["Breakfast"].protein,
+            "carbs": target_macros["Breakfast"].carbs,
+            "fats": target_macros["Breakfast"].fats,
+        },
+    )
+
+    # Generate recommendations using rule-based engine
+    recommendations = rule_based_recommendation_engine.generate_recommendations(
+        meal_plan=meal_plan.meals
     )
 
     if not recommendations:
