@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from meal_generator import MealGenerator
-from recommendation import RecommendationEngine
+from recommendation_rulebase import RecommendationEngine
 from user import User
 import pandas as pd
 
