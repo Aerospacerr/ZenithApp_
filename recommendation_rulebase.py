@@ -115,18 +115,18 @@ class RecommendationEngine:
         critical_nutrient = self.identify_critical_nutrient(total_shortfall_excess)
 
         for meal_name, meal_details in meal_plan.items():
-            for item in meal_details["items"]:
-                if critical_nutrient in item["macros"]:
+            for item in meal_details.items:  # Access the items using dot notation
+                if critical_nutrient in item.macros:
                     # Get food alternatives with focus on the critical nutrient
                     alternatives = self.search_alternatives(
-                        food_name=item["name"], nutrient_priority=critical_nutrient
+                        food_name=item.name, nutrient_priority=critical_nutrient
                     )
 
                     # Add to recommendations
                     all_recommendations.append(
                         {
                             "meal": meal_name,
-                            "item": item["name"],
+                            "item": item.name,
                             "issue": f"Optimize {critical_nutrient.capitalize()}",
                             "alternatives": alternatives,
                         }
