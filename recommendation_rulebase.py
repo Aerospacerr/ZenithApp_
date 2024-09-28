@@ -258,15 +258,18 @@ class RecommendationEngine:
         self, alternative, original_calories, original_food
     ):
         """
-        Calculate the nutrient values for the recommended food item based on the original food calories
-        and handle units that are not directly numerical, like "pieces" or "cups".
+        Calculate the nutrient values for the recommended food item based on the original food calories.
+        Handles units that are not directly numerical like "pieces" or "cups", and uses unit_category.
         """
         # Extract the original quantity and unit
-        original_quantity = original_food["quantity"]
-        original_unit = original_food.get("unit", "unit")
+        original_quantity = original_food.get("quantity", "100")
+        original_unit = original_food.get("unit", "g")
+
+        # Ensure the unit_category is available, default to 'Base Units' if not present
+        unit_category = original_food.get("unit_category", "Base Units")
 
         # Handle cases where the unit is "Base Units" (e.g., grams) vs. non-numeric units
-        if original_food["unit_category"] == "Base Units":
+        if unit_category == "Base Units":
             # If base units, calculate ratio based on calories
             calorie_ratio = original_calories / alternative["CALORIES"]
 
@@ -289,11 +292,11 @@ class RecommendationEngine:
                 ),
             }
         else:
-            # For non-numeric units (e.g., "pieces", "cups"), we adjust based on the number of units
+            # For non-numeric units (e.g., "pieces", "cups"), adjust based on the number of units
             calorie_ratio = original_calories / alternative["CALORIES"]
 
             # Calculate the new number of units required to match the calories
-            adjusted_units = original_quantity * calorie_ratio
+            adjusted_units = float(original_quantity) * calorie_ratio
 
             return {
                 "quantity": f"{adjusted_units:.2f} {original_unit}",  # Adjusted number of units
