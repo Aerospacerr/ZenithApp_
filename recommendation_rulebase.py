@@ -246,28 +246,51 @@ class RecommendationEngine:
         return all_recommendations
 
     def calculate_nutrient_per_portion(
-        self, alternative, original_portion, original_food
+        self, alternative, original_calories, original_food
     ):
         """
-        Calculate the nutrient values for the recommended food item based on the original food portion size.
+        Calculate the nutrient values for the recommended food item based on the same calorie content,
+        considering the actual quantity of the alternative food.
         """
-        quantity_numeric = float(
-            original_portion
-        )  # Keep the same portion size as the original
+        # Get the calories and quantity per portion for the alternative food
+        alternative_calories_per_unit = float(alternative["CALORIES"])
+        alternative_quantity = float(
+            alternative["QUANTITY"]
+        )  # Get the actual quantity from the dataset
 
+        # Calculate the calories per actual quantity (not necessarily per 100g)
+        alternative_calories_per_quantity = (
+            alternative_calories_per_unit * alternative_quantity / 100
+        )
+
+        if alternative_calories_per_quantity == 0:
+            raise ValueError(
+                f"Alternative food {alternative['FOOD ITEM']} has zero calories."
+            )
+
+        # Calculate the required quantity of the alternative to match the original food's calories
+        new_quantity = (
+            original_calories / alternative_calories_per_quantity
+        ) * alternative_quantity
+
+        # Now scale the other nutrients based on the new_quantity
         return {
-            "quantity": f"{quantity_numeric} g",  # Keep the same quantity as the original
-            "calories": float(alternative["CALORIES"]) * quantity_numeric / 100,
-            "protein": float(alternative["PROTEIN"]) * quantity_numeric / 100,
-            "carbs": float(alternative["NET CARBS"]) * quantity_numeric / 100,
-            "fats": float(alternative["FATS"]) * quantity_numeric / 100,
+            "quantity": f"{new_quantity:.2f} {alternative.get('UNIT', 'g')}",  # Adjusted quantity for the same calories
+            "calories": original_calories,  # Keep the calories the same as the original food
+            "protein": (float(alternative["PROTEIN"]) * new_quantity)
+            / alternative_quantity,
+            "carbs": (float(alternative["NET CARBS"]) * new_quantity)
+            / alternative_quantity,
+            "fats": (float(alternative["FATS"]) * new_quantity) / alternative_quantity,
             "sugars": (
-                float(alternative["TOTAL SUGARS"]) * quantity_numeric / 100
+                (float(alternative["TOTAL SUGARS"]) * new_quantity)
+                / alternative_quantity
                 if "TOTAL SUGARS" in alternative
                 else 0
             ),
             "fiber": (
-                float(alternative["DIETARY FIBRE"]) * quantity_numeric / 100
+                (float(alternative["DIETARY FIBRE"]) * new_quantity)
+                / alternative_quantity
                 if "DIETARY FIBRE" in alternative
                 else 0
             ),
