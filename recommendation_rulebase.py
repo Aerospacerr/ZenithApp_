@@ -192,7 +192,6 @@ class RecommendationEngine:
             logging.debug("Critical nutrient: %s", critical_nutrient)
 
             for meal_name, meal_details in meal_plan.items():
-                # Accessing the items correctly
                 for item in meal_details[
                     "items"
                 ]:  # Adjust this line to access the items correctly
@@ -209,31 +208,41 @@ class RecommendationEngine:
                         )
 
                         if alternatives:
-                            # Adjust the nutrient values for the first alternative
-                            original_portion = item["quantity"].split()[
-                                0
-                            ]  # Extract portion size
-                            recommended_nutrients = self.calculate_nutrient_per_portion(
-                                self.df[
-                                    self.df["FOOD ITEM"] == alternatives[0][0]
-                                ].iloc[0],
-                                original_portion,
-                                item,
-                            )
+                            deviations = (
+                                []
+                            )  # List to store deviations for all alternatives
+                            for alternative in alternatives:
+                                # Calculate nutrient values for each alternative
+                                recommended_nutrients = (
+                                    self.calculate_nutrient_per_portion(
+                                        self.df[
+                                            self.df["FOOD ITEM"] == alternative[0]
+                                        ].iloc[0],
+                                        item["macros"][
+                                            "calories"
+                                        ],  # Keep the original item's calories
+                                        item,
+                                    )
+                                )
 
-                            # Calculate deviation from the original food
-                            deviation = self.calculate_nutrient_deviation(
-                                item["macros"], recommended_nutrients
-                            )
+                                # Calculate deviation from the original food
+                                deviation = self.calculate_nutrient_deviation(
+                                    item["macros"], recommended_nutrients
+                                )
+                                deviations.append(
+                                    {
+                                        "alternative": alternative[0],
+                                        "deviation": deviation,
+                                    }
+                                )
 
-                            # Add to recommendations with deviations
+                            # Add to recommendations with deviations for all alternatives
                             all_recommendations.append(
                                 {
                                     "meal": meal_name,
                                     "item": item["name"],
                                     "issue": f"Optimize {critical_nutrient.capitalize()}",
-                                    "alternatives": alternatives,
-                                    "deviation": deviation,  # Add deviations for comparison
+                                    "alternatives": deviations,  # Add deviations for all alternatives
                                 }
                             )
 
@@ -249,52 +258,60 @@ class RecommendationEngine:
         self, alternative, original_calories, original_food
     ):
         """
-        Calculate the nutrient values for the recommended food item based on the same calorie content,
-        considering the actual quantity of the alternative food.
+        Calculate the nutrient values for the recommended food item based on the original food calories
+        and handle units that are not directly numerical, like "pieces" or "cups".
         """
-        # Get the calories and quantity per portion for the alternative food
-        alternative_calories_per_unit = float(alternative["CALORIES"])
-        alternative_quantity = float(
-            alternative["QUANTITY"]
-        )  # Get the actual quantity from the dataset
+        # Extract the original quantity and unit
+        original_quantity = original_food["quantity"]
+        original_unit = original_food.get("unit", "unit")
 
-        # Calculate the calories per actual quantity (not necessarily per 100g)
-        alternative_calories_per_quantity = (
-            alternative_calories_per_unit * alternative_quantity / 100
-        )
+        # Handle cases where the unit is "Base Units" (e.g., grams) vs. non-numeric units
+        if original_food["unit_category"] == "Base Units":
+            # If base units, calculate ratio based on calories
+            calorie_ratio = original_calories / alternative["CALORIES"]
 
-        if alternative_calories_per_quantity == 0:
-            raise ValueError(
-                f"Alternative food {alternative['FOOD ITEM']} has zero calories."
-            )
+            # Adjust the portion size and calculate nutrients
+            return {
+                "quantity": f"{original_quantity * calorie_ratio:.2f} {original_unit}",  # Adjusted quantity
+                "calories": original_calories,  # Keep the same calories as the original
+                "protein": float(alternative["PROTEIN"]) * calorie_ratio,
+                "carbs": float(alternative["NET CARBS"]) * calorie_ratio,
+                "fats": float(alternative["FATS"]) * calorie_ratio,
+                "sugars": (
+                    float(alternative["TOTAL SUGARS"]) * calorie_ratio
+                    if "TOTAL SUGARS" in alternative
+                    else 0
+                ),
+                "fiber": (
+                    float(alternative["DIETARY FIBRE"]) * calorie_ratio
+                    if "DIETARY FIBRE" in alternative
+                    else 0
+                ),
+            }
+        else:
+            # For non-numeric units (e.g., "pieces", "cups"), we adjust based on the number of units
+            calorie_ratio = original_calories / alternative["CALORIES"]
 
-        # Calculate the required quantity of the alternative to match the original food's calories
-        new_quantity = (
-            original_calories / alternative_calories_per_quantity
-        ) * alternative_quantity
+            # Calculate the new number of units required to match the calories
+            adjusted_units = original_quantity * calorie_ratio
 
-        # Now scale the other nutrients based on the new_quantity
-        return {
-            "quantity": f"{new_quantity:.2f} {alternative.get('UNIT', 'g')}",  # Adjusted quantity for the same calories
-            "calories": original_calories,  # Keep the calories the same as the original food
-            "protein": (float(alternative["PROTEIN"]) * new_quantity)
-            / alternative_quantity,
-            "carbs": (float(alternative["NET CARBS"]) * new_quantity)
-            / alternative_quantity,
-            "fats": (float(alternative["FATS"]) * new_quantity) / alternative_quantity,
-            "sugars": (
-                (float(alternative["TOTAL SUGARS"]) * new_quantity)
-                / alternative_quantity
-                if "TOTAL SUGARS" in alternative
-                else 0
-            ),
-            "fiber": (
-                (float(alternative["DIETARY FIBRE"]) * new_quantity)
-                / alternative_quantity
-                if "DIETARY FIBRE" in alternative
-                else 0
-            ),
-        }
+            return {
+                "quantity": f"{adjusted_units:.2f} {original_unit}",  # Adjusted number of units
+                "calories": original_calories,
+                "protein": float(alternative["PROTEIN"]) * adjusted_units,
+                "carbs": float(alternative["NET CARBS"]) * adjusted_units,
+                "fats": float(alternative["FATS"]) * adjusted_units,
+                "sugars": (
+                    float(alternative["TOTAL SUGARS"]) * adjusted_units
+                    if "TOTAL SUGARS" in alternative
+                    else 0
+                ),
+                "fiber": (
+                    float(alternative["DIETARY FIBRE"]) * adjusted_units
+                    if "DIETARY FIBRE" in alternative
+                    else 0
+                ),
+            }
 
     def calculate_nutrient_deviation(self, original_nutrients, recommended_nutrients):
         """
