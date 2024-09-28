@@ -39,35 +39,11 @@ def save_to_csv(file_path, user_info, meal_plan):
             )
 
 
-# Function to extract numeric portion from a string like "120.15 g"
-def extract_numeric_value(quantity_str):
-    # Use regex to extract numeric portion of the string
-    match = re.match(r"([\d.]+)", quantity_str)
-    if match:
-        return float(match.group(1))
-    else:
-        raise ValueError(f"Cannot extract numeric value from '{quantity_str}'")
-
-
-# Calculate the nutrients per portion size for a food item
-def calculate_nutrient_per_portion(alternative, original_portion, original_food):
-    quantity_numeric = extract_numeric_value(
-        original_food["quantity"]
-    )  # Extract numeric part
-
-    return {
-        "quantity": quantity_numeric,
-        "calories": float(alternative["CALORIES"]) * original_portion / 100,
-        "protein": float(alternative["PROTEIN"]) * original_portion / 100,
-        "carbs": float(alternative["NET CARBS"]) * original_portion / 100,
-        "fats": float(alternative["FATS"]) * original_portion / 100,
-    }
-
-
 def main():
     # Step 1: Load the cleaned data from the data/ folder
     data_handler = DataHandler(
-        file_path="ZenithApp/data/updated_food_data_with_clusters.csv"
+        # file_path="ZenithApp/data/updated_food_data_with_clusters.csv"
+        file_path="data/updated_food_data_with_clusters.csv"
     )
     data_handler.load_data()
     df_cleaned = data_handler.get_data()
@@ -109,14 +85,34 @@ def main():
         user.calculate_macros()
         st.session_state.user = user  # Store the user object in session state
         st.markdown("### User Information")
-        st.write(user.display_user_info())
+        st.json(user.display_user_info())  # Display user info as JSON
 
-        # Step 3: Generate the meal plan using user-selected foods
+        # Step 3: Calculate adjusted macros based on the meal percentages
+        adjusted_macros = meal_generator.calculate_adjusted_macros(user, meals)
+
+        st.markdown("### Adjusted Macros per Meal (as JSON)")
+        st.json(adjusted_macros)  # Display the adjusted macros as JSON
+
+        # Step 4: Generate the meal plan using user-selected foods
         meal_generator = MealGenerator(user, meals, df_cleaned)
         final_plan = meal_generator.generate_full_plan(user_selected_items)
 
         # Store the final plan in session state
         st.session_state.final_plan = final_plan
+
+        # Step 5: Calculate actual macros from the meal plan
+        actual_macros = {}
+        for meal_name, details in final_plan.items():
+            actual_macros[meal_name] = details["macros"]
+
+        # Step 6: Calculate the differences between target macros and actual meal plan macros
+        macro_differences = meal_generator.calculate_macro_differences(
+            adjusted_macros, actual_macros
+        )
+
+        # Display the differences
+        st.markdown("### Macro Differences between Target and Generated Meal Plan")
+        st.json(macro_differences)  # Display the differences in JSON format
 
         # Clear previous recommendations
         st.session_state.removal_recommendations = None
@@ -220,12 +216,21 @@ def main():
                     alt_food_data = df_cleaned[
                         df_cleaned["FOOD ITEM"] == alt_food
                     ].iloc[0]
-                    alt_nutrients = calculate_nutrient_per_portion(
+                    alt_nutrients = meal_generator.calculate_nutrient_per_portion(
                         alt_food_data, original_portion, original_food
+                    )
+
+                    # Calculate the deviation between original and alternative nutrients
+                    deviation = (
+                        rule_based_recommendation_engine.calculate_nutrient_deviation(
+                            original_food["macros"], alt_nutrients
+                        )
                     )
 
                     st.write(f"**{alt_food} (Similarity: {similarity:.2f})**")
                     st.json(alt_nutrients)
+                    st.write("**Nutrient Deviations**:")
+                    st.json(deviation)
                 else:
                     st.markdown("No alternatives provided.")
 

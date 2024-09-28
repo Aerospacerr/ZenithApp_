@@ -118,9 +118,29 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
         logging.error("Meal plan generation failed for user: %s", user_input.name)
         raise HTTPException(status_code=400, detail="Meal plan generation failed.")
 
-    logging.debug("Generated meal plan: %s", meal_plan)
+    # Step 5: Calculate adjusted macros
+    adjusted_macros = meal_generator.calculate_adjusted_macros()
 
-    return meal_plan
+    # Step 6: Calculate actual macros from the meal plan
+    actual_macros = {}
+    for meal_name, details in meal_plan.items():
+        actual_macros[meal_name] = details["macros"]
+
+    # Step 7: Calculate the differences between target macros and actual meal plan macros
+    macro_differences = meal_generator.calculate_macro_differences(
+        adjusted_macros, actual_macros
+    )
+
+    logging.debug("Generated meal plan: %s", meal_plan)
+    logging.debug("Adjusted Macros: %s", adjusted_macros)
+    logging.debug("Macro Differences: %s", macro_differences)
+
+    # Step 8: Return the meal plan along with adjusted macros and macro differences
+    return {
+        "meal_plan": meal_plan,
+        "adjusted_macros_per_meal": adjusted_macros,
+        "macro_differences": macro_differences,
+    }
 
 
 # Recommendation API using rule-based engine

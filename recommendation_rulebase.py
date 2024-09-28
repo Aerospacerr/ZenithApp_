@@ -22,10 +22,12 @@ class RecommendationEngine:
 
         for meal, details in meal_plan.items():
             try:
-                total_shortfall_excess["calories"] += details.macros.calories
-                total_shortfall_excess["protein"] += details.macros.protein
-                total_shortfall_excess["carbs"] += details.macros.carbs
-                total_shortfall_excess["fats"] += details.macros.fats
+                # Safely access the macros dictionary assuming it's a dictionary
+                macros = details.get("macros", {})
+                total_shortfall_excess["calories"] += macros.get("calories", 0)
+                total_shortfall_excess["protein"] += macros.get("protein", 0)
+                total_shortfall_excess["carbs"] += macros.get("carbs", 0)
+                total_shortfall_excess["fats"] += macros.get("fats", 0)
             except AttributeError as e:
                 logging.error("Meal plan structure invalid: %s", e)
                 raise ValueError("Invalid meal plan structure") from e
@@ -125,6 +127,51 @@ class RecommendationEngine:
 
         return alternatives[:top_n]
 
+    # def generate_recommendations(self, meal_plan, threshold=10):
+    #     """Generate a list of recommendations for items to remove or replace in the meal plan."""
+    #     all_recommendations = []
+
+    #     logging.debug("Starting recommendation generation for meal plan")
+
+    #     try:
+    #         # Calculate the total shortfall or excess for each nutrient
+    #         total_shortfall_excess = self.post_genetic_algorithm_nutrient_calculation(
+    #             meal_plan
+    #         )
+    #         logging.debug(
+    #             "Total shortfall/excess calculated: %s", total_shortfall_excess
+    #         )
+
+    #         # Identify the critical nutrient
+    #         critical_nutrient = self.identify_critical_nutrient(total_shortfall_excess)
+    #         logging.debug("Critical nutrient: %s", critical_nutrient)
+
+    #         for meal_name, meal_details in meal_plan.items():
+    #             for item in meal_details.items:  # Access the items using dot notation
+    #                 logging.debug("Evaluating item %s in meal %s", item.name, meal_name)
+    #                 if critical_nutrient in item.macros.dict():
+    #                     # Get food alternatives with focus on the critical nutrient
+    #                     alternatives = self.search_alternatives(
+    #                         food_name=item.name, nutrient_priority=critical_nutrient
+    #                     )
+
+    #                     # Add to recommendations
+    #                     all_recommendations.append(
+    #                         {
+    #                             "meal": meal_name,
+    #                             "item": item.name,
+    #                             "issue": f"Optimize {critical_nutrient.capitalize()}",
+    #                             "alternatives": alternatives,
+    #                         }
+    #                     )
+    #         logging.debug("Generated recommendations: %s", all_recommendations)
+
+    #     except Exception as e:
+    #         logging.error("Error during recommendation generation: %s", e)
+    #         raise
+
+    #     return all_recommendations
+
     def generate_recommendations(self, meal_plan, threshold=10):
         """Generate a list of recommendations for items to remove or replace in the meal plan."""
         all_recommendations = []
@@ -145,23 +192,51 @@ class RecommendationEngine:
             logging.debug("Critical nutrient: %s", critical_nutrient)
 
             for meal_name, meal_details in meal_plan.items():
-                for item in meal_details.items:  # Access the items using dot notation
-                    logging.debug("Evaluating item %s in meal %s", item.name, meal_name)
-                    if critical_nutrient in item.macros.dict():
+                # Ensure we access the "items" key of meal_details, which should be a list of items
+                for item in meal_details[
+                    "items"
+                ]:  # Access the items correctly as a list
+                    logging.debug(
+                        "Evaluating item %s in meal %s", item["name"], meal_name
+                    )
+
+                    if (
+                        critical_nutrient in item["macros"]
+                    ):  # Adjust to access macros as a dictionary
                         # Get food alternatives with focus on the critical nutrient
                         alternatives = self.search_alternatives(
-                            food_name=item.name, nutrient_priority=critical_nutrient
+                            food_name=item["name"], nutrient_priority=critical_nutrient
                         )
 
-                        # Add to recommendations
-                        all_recommendations.append(
-                            {
-                                "meal": meal_name,
-                                "item": item.name,
-                                "issue": f"Optimize {critical_nutrient.capitalize()}",
-                                "alternatives": alternatives,
-                            }
-                        )
+                        if alternatives:
+                            # Adjust the nutrient values for the first alternative
+                            original_portion = item["quantity"].split()[
+                                0
+                            ]  # Extract portion size
+                            recommended_nutrients = self.calculate_nutrient_per_portion(
+                                self.df[
+                                    self.df["FOOD ITEM"] == alternatives[0][0]
+                                ].iloc[0],
+                                original_portion,
+                                item,
+                            )
+
+                            # Calculate deviation from the original food
+                            deviation = self.calculate_nutrient_deviation(
+                                item["macros"], recommended_nutrients
+                            )
+
+                            # Add to recommendations with deviations
+                            all_recommendations.append(
+                                {
+                                    "meal": meal_name,
+                                    "item": item["name"],
+                                    "issue": f"Optimize {critical_nutrient.capitalize()}",
+                                    "alternatives": alternatives,
+                                    "deviation": deviation,  # Add deviations for comparison
+                                }
+                            )
+
             logging.debug("Generated recommendations: %s", all_recommendations)
 
         except Exception as e:
@@ -169,3 +244,49 @@ class RecommendationEngine:
             raise
 
         return all_recommendations
+
+    def calculate_nutrient_per_portion(
+        self, alternative, original_portion, original_food
+    ):
+        """
+        Calculate the nutrient values for the recommended food item based on the original food portion size.
+        """
+        quantity_numeric = float(
+            original_portion
+        )  # Keep the same portion size as the original
+
+        return {
+            "quantity": f"{quantity_numeric} g",  # Keep the same quantity as the original
+            "calories": float(alternative["CALORIES"]) * quantity_numeric / 100,
+            "protein": float(alternative["PROTEIN"]) * quantity_numeric / 100,
+            "carbs": float(alternative["NET CARBS"]) * quantity_numeric / 100,
+            "fats": float(alternative["FATS"]) * quantity_numeric / 100,
+            "sugars": (
+                float(alternative["TOTAL SUGARS"]) * quantity_numeric / 100
+                if "TOTAL SUGARS" in alternative
+                else 0
+            ),
+            "fiber": (
+                float(alternative["DIETARY FIBRE"]) * quantity_numeric / 100
+                if "DIETARY FIBRE" in alternative
+                else 0
+            ),
+        }
+
+    def calculate_nutrient_deviation(self, original_nutrients, recommended_nutrients):
+        """
+        Calculate the deviation between original and recommended food nutrients.
+        """
+        deviation = {
+            "calories": recommended_nutrients["calories"]
+            - original_nutrients["calories"],
+            "protein": recommended_nutrients["protein"] - original_nutrients["protein"],
+            "carbs": recommended_nutrients["carbs"] - original_nutrients["carbs"],
+            "fats": recommended_nutrients["fats"] - original_nutrients["fats"],
+            "sugars": recommended_nutrients.get("sugars", 0)
+            - original_nutrients.get("sugars", 0),
+            "fiber": recommended_nutrients.get("fiber", 0)
+            - original_nutrients.get("fiber", 0),
+        }
+
+        return deviation
