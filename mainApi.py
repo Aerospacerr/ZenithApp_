@@ -154,9 +154,42 @@ def generate_recommendations(recommendation_input: RecommendationInput):
         "Generating recommendations for meal plan: %s", recommendation_input.meal_plan
     )
 
-    # Extract the meal plan and target macros
-    meal_plan = recommendation_input.meal_plan
-    target_macros = recommendation_input.target_macros
+    # Convert MealDetails and MealItem to a dictionary-like structure for the recommendation engine
+    meal_plan = {}
+    for meal_name, meal_details in recommendation_input.meal_plan.meals.items():
+        meal_plan[meal_name] = {
+            "items": [
+                {
+                    "name": item.name,
+                    "macros": {
+                        "calories": item.macros.calories,
+                        "protein": item.macros.protein,
+                        "carbs": item.macros.carbs,
+                        "fats": item.macros.fats,
+                    },
+                }
+                for item in meal_details.items
+            ],
+            "macros": {
+                "calories": meal_details.macros.calories,
+                "protein": meal_details.macros.protein,
+                "carbs": meal_details.macros.carbs,
+                "fats": meal_details.macros.fats,
+            },
+        }
+
+    logging.debug("Transformed meal plan for recommendation engine: %s", meal_plan)
+
+    # Extract the target macros
+    target_macros = {
+        meal_name: {
+            "calories": target.calories,
+            "protein": target.protein,
+            "carbs": target.carbs,
+            "fats": target.fats,
+        }
+        for meal_name, target in recommendation_input.target_macros.items()
+    }
 
     logging.debug("Target macros: %s", target_macros)
 
@@ -164,17 +197,17 @@ def generate_recommendations(recommendation_input: RecommendationInput):
     rule_based_recommendation_engine = RuleBasedRecommendationEngine(
         df,
         {
-            "calories": sum([target.calories for target in target_macros.values()]),
-            "protein": sum([target.protein for target in target_macros.values()]),
-            "carbs": sum([target.carbs for target in target_macros.values()]),
-            "fats": sum([target.fats for target in target_macros.values()]),
+            "calories": sum(target["calories"] for target in target_macros.values()),
+            "protein": sum(target["protein"] for target in target_macros.values()),
+            "carbs": sum(target["carbs"] for target in target_macros.values()),
+            "fats": sum(target["fats"] for target in target_macros.values()),
         },
     )
 
     # Generate recommendations using rule-based engine
     try:
         recommendations = rule_based_recommendation_engine.generate_recommendations(
-            meal_plan=meal_plan.meals
+            meal_plan=meal_plan
         )
     except Exception as e:
         logging.error("Error generating recommendations: %s", e)
