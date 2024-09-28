@@ -48,6 +48,7 @@ class Macros(BaseModel):
 class MealItem(BaseModel):
     name: str
     macros: Macros  # Using explicit Macros model to ensure structure
+    quantity: str = "100 g"  # Added quantity as an optional field with a default value
 
 
 class MealDetails(BaseModel):
@@ -154,6 +155,12 @@ def generate_recommendations(recommendation_input: RecommendationInput):
         "Generating recommendations for meal plan: %s", recommendation_input.meal_plan
     )
 
+    # Ensure 'quantity' exists in the original food item, or assign a default
+    for meal in recommendation_input.meal_plan.meals.values():
+        for item in meal.items:
+            if not item.quantity:
+                item.quantity = "100 g"  # Assign a default if missing
+
     # Convert MealDetails and MealItem to a dictionary-like structure for the recommendation engine
     meal_plan = {}
     for meal_name, meal_details in recommendation_input.meal_plan.meals.items():
@@ -167,6 +174,7 @@ def generate_recommendations(recommendation_input: RecommendationInput):
                         "carbs": item.macros.carbs,
                         "fats": item.macros.fats,
                     },
+                    "quantity": item.quantity,  # Include quantity in meal item
                 }
                 for item in meal_details.items
             ],
