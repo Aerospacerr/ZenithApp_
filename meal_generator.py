@@ -181,14 +181,15 @@ class MealGenerator:
 
         # Function to calculate adjusted macros for each meal
 
-    def calculate_adjusted_macros(self):
-        """Calculate the adjusted macros for each meal based on user-selected percentages."""
+    def calculate_adjusted_macros(self, user, meals):
+        """Calculate the macros for each meal based on the user-selected percentages."""
         adjusted_macros = {}
-        for meal, percentage in self.meals.items():
+
+        for meal, percentage in meals.items():
             adjusted_macros[meal] = {
-                "calories": self.user.calories * percentage,
-                "protein": self.user.protein * percentage,
-                "carbs": self.user.carbs * percentage,
-                "fats": self.user.fats * percentage,
+                "calories": user.calories * percentage,
+                "protein": user.protein * percentage,
+                "carbs": user.carbs * percentage,
+                "fats": user.fats * percentage,
             }
         return adjusted_macros

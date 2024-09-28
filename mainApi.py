@@ -119,7 +119,9 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
         raise HTTPException(status_code=400, detail="Meal plan generation failed.")
 
     # Step 5: Calculate adjusted macros
-    adjusted_macros = meal_generator.calculate_adjusted_macros()
+    adjusted_macros = meal_generator.calculate_adjusted_macros(
+        user, meal_selection.meals
+    )
 
     # Step 6: Calculate actual macros from the meal plan
     actual_macros = {}

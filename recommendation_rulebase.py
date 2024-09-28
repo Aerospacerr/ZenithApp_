@@ -192,10 +192,10 @@ class RecommendationEngine:
             logging.debug("Critical nutrient: %s", critical_nutrient)
 
             for meal_name, meal_details in meal_plan.items():
-                # Ensure we access the "items" key of meal_details, which should be a list of items
+                # Accessing the items correctly
                 for item in meal_details[
                     "items"
-                ]:  # Access the items correctly as a list
+                ]:  # Adjust this line to access the items correctly
                     logging.debug(
                         "Evaluating item %s in meal %s", item["name"], meal_name
                     )

@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 import altair as alt
-import re
 from user import User
 from meal_generator import MealGenerator
-from recommendation import RecommendationEngine as RemovalRecommendationEngine
 from recommendation_rulebase import (
     RecommendationEngine as RuleBasedRecommendationEngine,
 )
@@ -41,10 +39,7 @@ def save_to_csv(file_path, user_info, meal_plan):
 
 def main():
     # Step 1: Load the cleaned data from the data/ folder
-    data_handler = DataHandler(
-        # file_path="ZenithApp/data/updated_food_data_with_clusters.csv"
-        file_path="data/updated_food_data_with_clusters.csv"
-    )
+    data_handler = DataHandler(file_path="data/updated_food_data_with_clusters.csv")
     data_handler.load_data()
     df_cleaned = data_handler.get_data()
 
@@ -87,32 +82,27 @@ def main():
         st.markdown("### User Information")
         st.json(user.display_user_info())  # Display user info as JSON
 
-        # Step 3: Calculate adjusted macros based on the meal percentages
-        adjusted_macros = meal_generator.calculate_adjusted_macros(user, meals)
-
-        st.markdown("### Adjusted Macros per Meal (as JSON)")
-        st.json(adjusted_macros)  # Display the adjusted macros as JSON
-
-        # Step 4: Generate the meal plan using user-selected foods
+        # Step 3: Generate the meal plan using user-selected foods
         meal_generator = MealGenerator(user, meals, df_cleaned)
         final_plan = meal_generator.generate_full_plan(user_selected_items)
-
-        # Store the final plan in session state
         st.session_state.final_plan = final_plan
 
-        # Step 5: Calculate actual macros from the meal plan
+        # Calculate adjusted macros based on meal percentages
+        adjusted_macros = meal_generator.calculate_adjusted_macros(user, meals)
+        st.markdown("### Adjusted Macros per Meal (as JSON)")
+        st.json(adjusted_macros)
+
+        # Step 4: Calculate actual macros from the meal plan
         actual_macros = {}
         for meal_name, details in final_plan.items():
             actual_macros[meal_name] = details["macros"]
 
-        # Step 6: Calculate the differences between target macros and actual meal plan macros
+        # Step 5: Calculate macro differences
         macro_differences = meal_generator.calculate_macro_differences(
             adjusted_macros, actual_macros
         )
-
-        # Display the differences
         st.markdown("### Macro Differences between Target and Generated Meal Plan")
-        st.json(macro_differences)  # Display the differences in JSON format
+        st.json(macro_differences)
 
         # Clear previous recommendations
         st.session_state.removal_recommendations = None
@@ -183,13 +173,16 @@ def main():
             # Display recommendations with portion-adjusted nutrients
             st.markdown("## Recommendations per Meal")
 
+            meal_generator = MealGenerator(
+                st.session_state.user, meals, df_cleaned
+            )  # Create meal_generator here
+
             for recommendation in recommendations_v2:
                 meal = recommendation.get("meal", "N/A")
                 item = recommendation.get("item", "N/A")
                 issue = recommendation.get("issue", "N/A")
                 alternatives = recommendation.get("alternatives", [])
 
-                # Display only the most deviated item
                 st.markdown(f"### Meal: {meal}")
                 st.markdown(f"**Most Deviated Item**: {item}")
                 st.markdown(f"**Issue**: {issue}")
@@ -198,7 +191,6 @@ def main():
                     st.markdown(
                         "**Consider these alternatives with calculated nutrients for the same portion size:**"
                     )
-                    # Get the portion size of the deviated food
                     original_food = next(
                         (
                             x
@@ -207,11 +199,8 @@ def main():
                         ),
                         None,
                     )
-                    original_portion = float(
-                        original_food["quantity"].split()[0]
-                    )  # Assuming the quantity is in "X g"
+                    original_portion = float(original_food["quantity"].split()[0])
 
-                    # Display only the first alternative (the most deviated)
                     alt_food, similarity = alternatives[0]
                     alt_food_data = df_cleaned[
                         df_cleaned["FOOD ITEM"] == alt_food
@@ -220,7 +209,6 @@ def main():
                         alt_food_data, original_portion, original_food
                     )
 
-                    # Calculate the deviation between original and alternative nutrients
                     deviation = (
                         rule_based_recommendation_engine.calculate_nutrient_deviation(
                             original_food["macros"], alt_nutrients
