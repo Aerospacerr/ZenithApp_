@@ -268,53 +268,54 @@ class RecommendationEngine:
         # Ensure the unit_category is available, default to 'Base Units' if not present
         unit_category = original_food.get("unit_category", "Base Units")
 
-        # Handle cases where the unit is "Base Units" (e.g., grams) vs. non-numeric units
-        if unit_category == "Base Units":
-            # If base units, calculate ratio based on calories
-            calorie_ratio = original_calories / alternative["CALORIES"]
+        try:
+            # Convert original_quantity to float if it's not already
+            original_quantity_float = float(
+                self.extract_numeric_value(original_quantity)
+            )
 
-            # Adjust the portion size and calculate nutrients
-            return {
-                "quantity": f"{original_quantity * calorie_ratio:.2f} {original_unit}",  # Adjusted quantity
-                "calories": original_calories,  # Keep the same calories as the original
-                "protein": float(alternative["PROTEIN"]) * calorie_ratio,
-                "carbs": float(alternative["NET CARBS"]) * calorie_ratio,
-                "fats": float(alternative["FATS"]) * calorie_ratio,
-                "sugars": (
-                    float(alternative["TOTAL SUGARS"]) * calorie_ratio
-                    if "TOTAL SUGARS" in alternative
-                    else 0
-                ),
-                "fiber": (
-                    float(alternative["DIETARY FIBRE"]) * calorie_ratio
-                    if "DIETARY FIBRE" in alternative
-                    else 0
-                ),
-            }
-        else:
-            # For non-numeric units (e.g., "pieces", "cups"), adjust based on the number of units
-            calorie_ratio = original_calories / alternative["CALORIES"]
+            # Handle cases where the unit is "Base Units" (e.g., grams) vs. non-numeric units
+            if unit_category == "Base Units":
+                # Calculate ratio based on calories
+                calorie_ratio = original_calories / float(alternative["CALORIES"])
 
-            # Calculate the new number of units required to match the calories
-            adjusted_units = float(original_quantity) * calorie_ratio
+                # Adjust the portion size and calculate nutrients
+                return {
+                    "quantity": f"{original_quantity_float * calorie_ratio:.2f} {original_unit}",  # Adjusted quantity
+                    "calories": original_calories,  # Keep the same calories as the original
+                    "protein": float(alternative["PROTEIN"]) * calorie_ratio,
+                    "carbs": float(alternative["NET CARBS"]) * calorie_ratio,
+                    "fats": float(alternative["FATS"]) * calorie_ratio,
+                    "sugars": (
+                        float(alternative.get("TOTAL SUGARS", 0)) * calorie_ratio
+                    ),
+                    "fiber": (
+                        float(alternative.get("DIETARY FIBRE", 0)) * calorie_ratio
+                    ),
+                }
+            else:
+                # For non-numeric units (e.g., "pieces", "cups"), adjust based on the number of units
+                calorie_ratio = original_calories / float(alternative["CALORIES"])
 
-            return {
-                "quantity": f"{adjusted_units:.2f} {original_unit}",  # Adjusted number of units
-                "calories": original_calories,
-                "protein": float(alternative["PROTEIN"]) * adjusted_units,
-                "carbs": float(alternative["NET CARBS"]) * adjusted_units,
-                "fats": float(alternative["FATS"]) * adjusted_units,
-                "sugars": (
-                    float(alternative["TOTAL SUGARS"]) * adjusted_units
-                    if "TOTAL SUGARS" in alternative
-                    else 0
-                ),
-                "fiber": (
-                    float(alternative["DIETARY FIBRE"]) * adjusted_units
-                    if "DIETARY FIBRE" in alternative
-                    else 0
-                ),
-            }
+                # Calculate the new number of units required to match the calories
+                adjusted_units = original_quantity_float * calorie_ratio
+
+                return {
+                    "quantity": f"{adjusted_units:.2f} {original_unit}",  # Adjusted number of units
+                    "calories": original_calories,
+                    "protein": float(alternative["PROTEIN"]) * adjusted_units,
+                    "carbs": float(alternative["NET CARBS"]) * adjusted_units,
+                    "fats": float(alternative["FATS"]) * adjusted_units,
+                    "sugars": (
+                        float(alternative.get("TOTAL SUGARS", 0)) * adjusted_units
+                    ),
+                    "fiber": (
+                        float(alternative.get("DIETARY FIBRE", 0)) * adjusted_units
+                    ),
+                }
+        except ValueError as e:
+            logging.error(f"Error converting quantities or nutrients: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid quantity format: {e}")
 
     def calculate_nutrient_deviation(self, original_nutrients, recommended_nutrients):
         """
