@@ -192,25 +192,19 @@ class RecommendationEngine:
             logging.debug("Critical nutrient: %s", critical_nutrient)
 
             for meal_name, meal_details in meal_plan.items():
-                for item in meal_details[
-                    "items"
-                ]:  # Adjust this line to access the items correctly
+                for item in meal_details["items"]:
                     logging.debug(
                         "Evaluating item %s in meal %s", item["name"], meal_name
                     )
 
-                    if (
-                        critical_nutrient in item["macros"]
-                    ):  # Adjust to access macros as a dictionary
+                    if critical_nutrient in item["macros"]:
                         # Get food alternatives with focus on the critical nutrient
                         alternatives = self.search_alternatives(
                             food_name=item["name"], nutrient_priority=critical_nutrient
                         )
 
                         if alternatives:
-                            deviations = (
-                                []
-                            )  # List to store deviations for all alternatives
+                            deviations = []
                             for alternative in alternatives:
                                 # Calculate nutrient values for each alternative
                                 recommended_nutrients = (
@@ -233,16 +227,22 @@ class RecommendationEngine:
                                     {
                                         "alternative": alternative[0],
                                         "deviation": deviation,
+                                        "quantity": recommended_nutrients[
+                                            "quantity"
+                                        ],  # Include the quantity for the alternative
                                     }
                                 )
 
-                            # Add to recommendations with deviations for all alternatives
+                            # Add to recommendations with deviations and original item quantity
                             all_recommendations.append(
                                 {
                                     "meal": meal_name,
                                     "item": item["name"],
                                     "issue": f"Optimize {critical_nutrient.capitalize()}",
-                                    "alternatives": deviations,  # Add deviations for all alternatives
+                                    "alternatives": deviations,
+                                    "original_quantity": item.get(
+                                        "quantity", "Unknown quantity"
+                                    ),  # Include original item's quantity
                                 }
                             )
 
