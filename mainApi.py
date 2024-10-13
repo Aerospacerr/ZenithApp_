@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Load your food data
-df = pd.read_csv("updated_food_data_with_clusters.csv")
+df = pd.read_csv("updated_food_data_with_complete_clusters.csv")
 
 app = FastAPI()
 

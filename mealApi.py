@@ -5,7 +5,7 @@ from user import User
 import pandas as pd
 
 # Load your food data
-df = pd.read_csv("updated_food_data_with_clusters.csv")
+df = pd.read_csv("updated_food_data_with_complete_clusters.csv")
 
 app = FastAPI()
 

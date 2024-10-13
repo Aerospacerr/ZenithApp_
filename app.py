@@ -13,7 +13,9 @@ from visualization import create_macros_chart
 
 def main():
     # Step 1: Load the cleaned data from the data/ folder
-    data_handler = DataHandler(file_path="data/updated_food_data_with_clusters.csv")
+    data_handler = DataHandler(
+        file_path="data/updated_food_data_with_complete_clusters.csv"
+    )
     data_handler.load_data()
     df_cleaned = data_handler.get_data()
 
