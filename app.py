@@ -28,9 +28,17 @@ def main():
         st.session_state.recommendations_v2 = None
 
     # Get user input
-    name, age, weight, height, activity_level, meals, user_selected_items = (
-        get_user_input(df_cleaned)
-    )
+    (
+        name,
+        age,
+        weight,
+        height,
+        activity_level,
+        goal,
+        gender,
+        meals,
+        user_selected_items,
+    ) = get_user_input(df_cleaned)
 
     if not any(user_selected_items.values()):
         st.warning(
@@ -47,6 +55,8 @@ def main():
             weight=weight,
             height=height,
             activity_level=activity_level,
+            goal=goal,
+            gender=gender,
         )
         user.calculate_macros()
         st.session_state.user = user  # Store the user object in session state

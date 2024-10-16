@@ -25,15 +25,15 @@ class MealGenerator:
                 {
                     "name": row["FOOD ITEM"],
                     "category": row["CATEGORY"],  # Include the category
-                    "protein": float(row["PROTEIN"]),  # Ensure conversion to float
-                    "carbs": float(row["NET CARBS"]),  # Ensure conversion to float
-                    "fats": float(row["FATS"]),  # Ensure conversion to float
-                    "calories": float(row["CALORIES"]),  # Ensure conversion to float
-                    "sugars": float(row["TOTAL SUGARS"]),  # Include sugars
-                    "fiber": float(row["DIETARY FIBRE"]),  # Include dietary fiber
-                    "unit_category": row["unit_category"],  # Pass unit_category
+                    "protein": float(row["PROTEIN"]),
+                    "carbs": float(row["NET CARBS"]),
+                    "fats": float(row["FATS"]),
+                    "calories": float(row["CALORIES"]),
+                    "sugars": float(row["TOTAL SUGARS"]),
+                    "fiber": float(row["DIETARY FIBRE"]),
+                    "unit_category": row["unit_category"],
                     "quantity": float(row["QUANTITY"]),
-                    "unit": row.get("UNIT", "unit"),  # Get unit or use a default value
+                    "unit": row.get("UNIT", "unit"),
                 }
             )
 
@@ -151,23 +151,40 @@ class MealGenerator:
 
     # Function to calculate nutrients per portion
     def calculate_nutrient_per_portion(
-        self, alternative, original_portion, original_food
+        self, alternative, original_calories, original_food
     ):
-        """Calculate the nutrient values for the recommended food item based on the original food portion size."""
-        quantity_numeric = self.extract_numeric_value(
-            original_food["quantity"]
-        )  # Extract numeric part
+        """Calculate the nutrient values for the recommended food item based on the same calorie content."""
+        # Get the calories per 100g for the alternative
+        alternative_calories_per_100g = float(alternative["CALORIES"])
 
+        # Calculate the quantity of the alternative needed to match the original food's calories
+        if alternative_calories_per_100g == 0:
+            raise ValueError(
+                f"Alternative food {alternative['FOOD ITEM']} has zero calories."
+            )
+        new_quantity = (original_calories / alternative_calories_per_100g) * 100
+
+        # Now scale the other nutrients based on the new_quantity
         return {
-            "quantity": quantity_numeric,
-            "calories": float(alternative["CALORIES"]) * original_portion / 100,
-            "protein": float(alternative["PROTEIN"]) * original_portion / 100,
-            "carbs": float(alternative["NET CARBS"]) * original_portion / 100,
-            "fats": float(alternative["FATS"]) * original_portion / 100,
+            "quantity": f"{new_quantity:.2f} g",
+            "calories": original_calories,
+            "protein": (float(alternative["PROTEIN"]) * new_quantity) / 100,
+            "carbs": (float(alternative["NET CARBS"]) * new_quantity) / 100,
+            "fats": (float(alternative["FATS"]) * new_quantity) / 100,
+            "sugars": (
+                (float(alternative["TOTAL SUGARS"]) * new_quantity) / 100
+                if "TOTAL SUGARS" in alternative
+                else 0
+            ),
+            "fiber": (
+                (float(alternative["DIETARY FIBRE"]) * new_quantity) / 100
+                if "DIETARY FIBRE" in alternative
+                else 0
+            ),
         }
 
-    # Function to calculate the difference between target and actual macros
     def calculate_macro_differences(self, target_macros, actual_macros):
+        """Calculate the difference between target and actual macros."""
         differences = {}
         for meal_name, actual in actual_macros.items():
             target = target_macros.get(meal_name, {})
@@ -179,12 +196,9 @@ class MealGenerator:
             }
         return differences
 
-        # Function to calculate adjusted macros for each meal
-
     def calculate_adjusted_macros(self, user, meals):
         """Calculate the macros for each meal based on the user-selected percentages."""
         adjusted_macros = {}
-
         for meal, percentage in meals.items():
             adjusted_macros[meal] = {
                 "calories": user.calories * percentage,

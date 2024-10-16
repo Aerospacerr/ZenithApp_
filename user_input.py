@@ -13,8 +13,20 @@ def get_user_input(df_cleaned):
     height = st.number_input(
         "Enter your height (in cm)", min_value=0.0, max_value=250.0, value=175.0
     )
+    gender = st.selectbox("Select your gender", ["male", "female"])
     activity_level = st.selectbox(
-        "Select your activity level", ["sedentary", "active", "very_active"]
+        "Select your activity level",
+        ["sedentary", "light", "moderate", "active", "very active"],
+    )
+    goal = st.selectbox(
+        "Select your goal",
+        [
+            "maintain weight",
+            "weight loss",
+            "fast weight loss",
+            "weight gain",
+            "fast weight gain",
+        ],
     )
 
     st.markdown("### Meal Distribution")
@@ -42,4 +54,14 @@ def get_user_input(df_cleaned):
         "Dinner": st.multiselect("Dinner Items", options=food_items),
     }
 
-    return name, age, weight, height, activity_level, meals, user_selected_items
+    return (
+        name,
+        age,
+        weight,
+        height,
+        activity_level,
+        goal,
+        gender,
+        meals,
+        user_selected_items,
+    )
