@@ -16,7 +16,7 @@ class User:
         activity_factors = {"sedentary": 1.2, "active": 1.55, "very_active": 1.75}
 
         self.calories = bmr * activity_factors[self.activity_level]
-        self.protein = 0.8 * self.weight  # 0.8g per kg of body weight (adjustable)
+        self.protein = 2 * self.weight  # 0.8g per kg of body weight (adjustable)
         self.fats = 0.25 * self.calories / 9  # 25% of calories from fats
         self.carbs = (
             self.calories - (self.protein * 4 + self.fats * 9)
