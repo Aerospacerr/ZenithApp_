@@ -24,10 +24,8 @@ class UserInput(BaseModel):
     weight: float
     height: float
     activity_level: str
-    calories: float
-    protein: float
-    carbs: float
-    fats: float
+    goal: str  # Added goal for weight management
+    gender: str  # Added gender for BMR calculation
 
 
 class MealSelection(BaseModel):
@@ -93,14 +91,12 @@ def generate_meal_plan(user_input: UserInput, meal_selection: MealSelection):
         weight=user_input.weight,
         height=user_input.height,
         activity_level=user_input.activity_level,
+        goal=user_input.goal,  # Include goal
+        gender=user_input.gender,  # Include gender
     )
 
-    # Step 2: Set the user's target nutrients
-    user.calories = user_input.calories
-    user.protein = user_input.protein
-    user.carbs = user_input.carbs
-    user.fats = user_input.fats
-
+    # Step 2: Calculate the user's macros
+    user.calculate_macros()
     logging.debug(
         "User's target nutrients: Calories=%s, Protein=%s, Carbs=%s, Fats=%s",
         user.calories,
